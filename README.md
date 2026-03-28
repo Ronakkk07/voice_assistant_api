@@ -89,7 +89,7 @@ Add this html file to implement the microphone feature and to store your gemini 
 <button id="speak">Speak</button>
 <script>
   const API = "http://127.0.0.1:8001/v1/voice/respond/raw";
-  const GEMINI_KEY = "YOUR_GEMINI_API_KEY"; // user supplies own key
+  const GEMINI_KEY = "YOUR_GEMINI_API_KEY"; // use your own key
 
   document.getElementById("speak").onclick = async () => {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -120,7 +120,7 @@ Add this html file to implement the microphone feature and to store your gemini 
 ## Notes
 
 - This repository intentionally has no login/auth layer.
-- Caller Gemini key is accepted per request only.
+- Gemini key is accepted per request only.
 - Use HTTPS so request keys are encrypted in transit.
 - Do **not** store caller Gemini keys in database/logs.
 - You can place this folder in a separate public repository as-is.
