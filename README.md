@@ -1,15 +1,15 @@
 # Public Voice Assistant API
 
 A small, public, **no-auth** API that:
-
-1. Accepts an audio file.
+Endpoint to test: http://44.195.84.200/docs
+1. Accepts an audio file / Speak through microphone.
 2. Transcribes speech on your backend using Whisper.
 3. Sends transcript to Gemini.
 4. Returns Gemini's response.
 5. Requires wake word **Luna** before forwarding to Gemini.
 
 > Each request must include the caller's own Gemini key (header or form field). The server does not store persistent Gemini keys.
-> Wake word defaults to `luna` and can be changed with `WAKE_WORD` env var.
+> Wake word defaults to `luna` and can be changed through `WAKE_WORD` 
 
 ## API contract
 
@@ -23,7 +23,7 @@ A small, public, **no-auth** API that:
   - `audio_file` (required): audio file (`.wav`, `.mp3`, `.m4a`, etc.)
 
 ### `POST /v1/voice/respond/raw`
-
+Speak through microphone
 - **Auth:** none
 - **Gemini key:** `X-Gemini-Api-Key` header (required)
 - **Body:** raw audio bytes (`audio/webm`, `audio/wav`, etc.)
@@ -35,7 +35,7 @@ A small, public, **no-auth** API that:
 {
   "activated": true,
   "transcript": "book a cab for tomorrow",
-  "command": "book a cab for tomorrow",
+  "command": "luna book a cab for tomorrow",
   "response": "Sure — where should I arrange the pickup?"
 }
 ```
@@ -81,7 +81,7 @@ curl -X POST "http://127.0.0.1:8001/v1/voice/respond/raw" \
 ```
 
 ## Browser microphone example (no file picker)
-
+Add this html file to implement the microphone feature and to store your gemini key here
 ```html
 <button id="speak">Speak</button>
 <script>
