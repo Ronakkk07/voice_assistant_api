@@ -7,7 +7,7 @@ Endpoint to test: http://44.195.84.200/docs
 3. Sends transcript to Gemini.
 4. Returns Gemini's response.
 5. Requires wake word **Luna** before forwarding to Gemini.
-6. Can add this if you want gemini to talk back ```html 
+6. Can add this if you want gemini to talk back ```
       const utterance = new SpeechSynthesisUtterance(data.response);
       speechSynthesis.speak(utterance); ```
 
