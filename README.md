@@ -8,17 +8,17 @@ A small, public, **no-auth** API that:
 4. Returns Gemini's response.
 5. Requires wake word **Luna** before forwarding to Gemini.
 
-> Configure Gemini API key on the server in `env/.env` (or via `GEMINI_API_KEY_FILE`). The API no longer accepts key in headers/forms.
-> Wake word defaults to `luna` and can be changed with `WAKE_WORD` in `env/.env`.
+> Each request must include the caller's own Gemini key (header or form field). The server does not store persistent Gemini keys.
+> Wake word defaults to `luna` and can be changed with `WAKE_WORD` env var.
 
 ## API contract
 
 ### `POST /v1/voice/respond`
 
 - **Auth:** none
-- **Gemini key (server-side only, any one of these):**
-  - `env/.env` with `GEMINI_API_KEY=<YOUR_GEMINI_API_KEY>`
-  - `env/.env` with `GEMINI_API_KEY_FILE=/path/to/gemini_key.txt`
+- **Gemini key (required per request, any one of these):**
+  - Header: `X-Gemini-Api-Key: <YOUR_GEMINI_API_KEY>`
+  - Multipart field: `gemini_api_key=<YOUR_GEMINI_API_KEY>`
 - **Body (multipart/form-data):**
   - `audio_file` (required): audio file (`.wav`, `.mp3`, `.m4a`, etc.)
 
@@ -51,20 +51,8 @@ cd public_voice_assistant_api
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-cp env/.env.example env/.env
-# edit env/.env and place your key
 # Optional:
-# WAKE_WORD=luna
-uvicorn main:app --reload --port 8001
-```
-
-### Keep key in file (recommended)
-
-```bash
-echo "YOUR_GEMINI_API_KEY" > /secure/path/gemini_key.txt
-cp env/.env.example env/.env
-# edit env/.env and set:
-# GEMINI_API_KEY_FILE=/secure/path/gemini_key.txt
+export WAKE_WORD=luna
 uvicorn main:app --reload --port 8001
 ```
 
@@ -72,12 +60,14 @@ uvicorn main:app --reload --port 8001
 
 ```bash
 curl -X POST "http://127.0.0.1:8001/v1/voice/respond" \
+  -H "X-Gemini-Api-Key: YOUR_GEMINI_API_KEY" \
   -F "audio_file=@./sample.wav"
 ```
 
 ## Notes
 
 - This repository intentionally has no login/auth layer.
-- Gemini key is loaded only from server env (`env/.env`) or key file path.
+- Caller Gemini key is accepted per request only.
+- Use HTTPS so request keys are encrypted in transit.
 - Do **not** store caller Gemini keys in database/logs.
 - You can place this folder in a separate public repository as-is.

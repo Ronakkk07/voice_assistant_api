@@ -1,17 +1,11 @@
 import os
 import tempfile
-from pathlib import Path
 from threading import Lock
 
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, Header, HTTPException, UploadFile
 from google.generativeai import GenerativeModel, configure
 from pydantic import BaseModel
 from faster_whisper import WhisperModel
-from dotenv import load_dotenv
-
-
-BASE_DIR = Path(__file__).resolve().parent
-load_dotenv(BASE_DIR / "env" / ".env")
 
 
 app = FastAPI(
@@ -47,9 +41,6 @@ class WhisperService:
                     cls._model = WhisperModel("base", device="cpu", compute_type="int8")
         return cls._model
 
-@app.get("/")
-def root():
-    return {"message": "Voice Assistant API is running"}
 
 def transcribe_audio(upload: UploadFile) -> str:
     suffix = os.path.splitext(upload.filename or "audio.wav")[1] or ".wav"
@@ -105,27 +96,25 @@ def extract_command_from_wake_word(transcript: str) -> tuple[bool, str]:
 
 
 def resolve_api_key(
+    header_api_key: str | None,
+    body_api_key: str | None,
 ) -> str:
     """
-    Resolve Gemini key from server-side configuration only:
-    1) File path from GEMINI_API_KEY_FILE env var
-    2) GEMINI_API_KEY env var (loaded from env/.env when present)
+    Resolve Gemini key from request only:
+    1) X-Gemini-Api-Key header
+    2) gemini_api_key form field
     """
-    key_file_path = os.getenv("GEMINI_API_KEY_FILE")
-    if key_file_path:
-        file_path = Path(key_file_path)
-        if file_path.exists():
-            return file_path.read_text(encoding="utf-8").strip()
+    if header_api_key:
+        return header_api_key.strip()
 
-    env_key = os.getenv("GEMINI_API_KEY")
-    if env_key:
-        return env_key.strip()
+    if body_api_key:
+        return body_api_key.strip()
 
     raise HTTPException(
         status_code=400,
         detail=(
-            "Missing Gemini API key. Configure GEMINI_API_KEY_FILE or GEMINI_API_KEY "
-            "in env/.env."
+            "Missing Gemini API key. Provide X-Gemini-Api-Key header or "
+            "gemini_api_key form field."
         ),
     )
 
@@ -138,8 +127,13 @@ def health() -> dict:
 @app.post("/v1/voice/respond", response_model=VoiceResponse)
 def voice_respond(
     audio_file: UploadFile = File(...),
+    gemini_api_key: str | None = Form(default=None),
+    x_gemini_api_key: str | None = Header(default=None),
 ) -> VoiceResponse:
-    resolved_key = resolve_api_key()
+    resolved_key = resolve_api_key(
+        header_api_key=x_gemini_api_key,
+        body_api_key=gemini_api_key,
+    )
 
     transcript = transcribe_audio(audio_file)
     if not transcript:
