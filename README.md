@@ -6,8 +6,10 @@ A small, public, **no-auth** API that:
 2. Transcribes speech on your backend using Whisper.
 3. Sends transcript to Gemini.
 4. Returns Gemini's response.
+5. Requires wake word **Luna** before forwarding to Gemini.
 
 > Configure Gemini API key on the server in `env/.env` (or via `GEMINI_API_KEY_FILE`). The API no longer accepts key in headers/forms.
+> Wake word defaults to `luna` and can be changed with `WAKE_WORD` in `env/.env`.
 
 ## API contract
 
@@ -24,8 +26,21 @@ A small, public, **no-auth** API that:
 
 ```json
 {
+  "activated": true,
   "transcript": "book a cab for tomorrow",
+  "command": "book a cab for tomorrow",
   "response": "Sure — where should I arrange the pickup?"
+}
+```
+
+If wake word is missing:
+
+```json
+{
+  "activated": false,
+  "transcript": "what is the weather",
+  "command": null,
+  "response": "Wake word 'luna' not detected. Say 'luna' first."
 }
 ```
 
@@ -38,6 +53,8 @@ source .venv/bin/activate
 pip install -r requirements.txt
 cp env/.env.example env/.env
 # edit env/.env and place your key
+# Optional:
+# WAKE_WORD=luna
 uvicorn main:app --reload --port 8001
 ```
 

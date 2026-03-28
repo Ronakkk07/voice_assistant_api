@@ -23,9 +23,13 @@ app = FastAPI(
     ),
 )
 
+WAKE_WORD = os.getenv("WAKE_WORD", "luna")
+
 
 class VoiceResponse(BaseModel):
+    activated: bool
     transcript: str
+    command: str | None = None
     response: str
 
 
@@ -80,6 +84,26 @@ def generate_response(transcript: str, api_key: str) -> str:
     return result.text.strip()
 
 
+def extract_command_from_wake_word(transcript: str) -> tuple[bool, str]:
+    """
+    Require wake word before routing to Gemini.
+    Returns:
+      (True, cleaned_command) if wake word is found
+      (False, original_transcript) if not found
+    """
+    lowered = transcript.lower()
+    wake_word_lower = WAKE_WORD.lower()
+
+    if wake_word_lower not in lowered:
+        return False, transcript
+
+    idx = lowered.find(wake_word_lower)
+    cleaned = transcript[idx + len(WAKE_WORD) :].strip(" ,:.-")
+    if not cleaned:
+        cleaned = "Hello"
+    return True, cleaned
+
+
 def resolve_api_key(
 ) -> str:
     """
@@ -121,5 +145,19 @@ def voice_respond(
     if not transcript:
         raise HTTPException(status_code=400, detail="Unable to transcribe audio")
 
-    response_text = generate_response(transcript, resolved_key)
-    return VoiceResponse(transcript=transcript, response=response_text)
+    activated, command = extract_command_from_wake_word(transcript)
+    if not activated:
+        return VoiceResponse(
+            activated=False,
+            transcript=transcript,
+            command=None,
+            response=f"Wake word '{WAKE_WORD}' not detected. Say '{WAKE_WORD}' first.",
+        )
+
+    response_text = generate_response(command, resolved_key)
+    return VoiceResponse(
+        activated=True,
+        transcript=transcript,
+        command=command,
+        response=response_text,
+    )
