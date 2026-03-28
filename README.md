@@ -22,6 +22,13 @@ A small, public, **no-auth** API that:
 - **Body (multipart/form-data):**
   - `audio_file` (required): audio file (`.wav`, `.mp3`, `.m4a`, etc.)
 
+### `POST /v1/voice/respond/raw`
+
+- **Auth:** none
+- **Gemini key:** `X-Gemini-Api-Key` header (required)
+- **Body:** raw audio bytes (`audio/webm`, `audio/wav`, etc.)
+- Good for browser microphone flows where you send a recorded blob directly.
+
 #### Response
 
 ```json
@@ -62,6 +69,49 @@ uvicorn main:app --reload --port 8001
 curl -X POST "http://127.0.0.1:8001/v1/voice/respond" \
   -H "X-Gemini-Api-Key: YOUR_GEMINI_API_KEY" \
   -F "audio_file=@./sample.wav"
+```
+
+Raw bytes mode:
+
+```bash
+curl -X POST "http://127.0.0.1:8001/v1/voice/respond/raw" \
+  -H "X-Gemini-Api-Key: YOUR_GEMINI_API_KEY" \
+  -H "Content-Type: audio/webm" \
+  --data-binary "@./mic_recording.webm"
+```
+
+## Browser microphone example (no file picker)
+
+```html
+<button id="speak">Speak</button>
+<script>
+  const API = "http://127.0.0.1:8001/v1/voice/respond/raw";
+  const GEMINI_KEY = "YOUR_GEMINI_API_KEY"; // user supplies own key
+
+  document.getElementById("speak").onclick = async () => {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const recorder = new MediaRecorder(stream, { mimeType: "audio/webm" });
+    const chunks = [];
+
+    recorder.ondataavailable = (e) => chunks.push(e.data);
+    recorder.onstop = async () => {
+      const blob = new Blob(chunks, { type: "audio/webm" });
+      const res = await fetch(API, {
+        method: "POST",
+        headers: {
+          "X-Gemini-Api-Key": GEMINI_KEY,
+          "Content-Type": "audio/webm",
+        },
+        body: blob,
+      });
+      console.log(await res.json());
+      stream.getTracks().forEach((t) => t.stop());
+    };
+
+    recorder.start();
+    setTimeout(() => recorder.stop(), 4000); // record 4s
+  };
+</script>
 ```
 
 ## Notes

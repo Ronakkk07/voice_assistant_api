@@ -2,7 +2,7 @@ import os
 import tempfile
 from threading import Lock
 
-from fastapi import FastAPI, File, Form, Header, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, Header, HTTPException, Request, UploadFile
 from google.generativeai import GenerativeModel, configure
 from pydantic import BaseModel
 from faster_whisper import WhisperModel
@@ -55,6 +55,20 @@ def transcribe_audio(upload: UploadFile) -> str:
         return " ".join(segment.text for segment in segments).strip()
     finally:
         upload.file.close()
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)
+
+
+def transcribe_audio_bytes(audio_bytes: bytes, suffix: str = ".wav") -> str:
+    fd, tmp_path = tempfile.mkstemp(suffix=suffix)
+    try:
+        with os.fdopen(fd, "wb") as temp_file:
+            temp_file.write(audio_bytes)
+
+        model = WhisperService.get_model()
+        segments, _ = model.transcribe(tmp_path)
+        return " ".join(segment.text for segment in segments).strip()
+    finally:
         if os.path.exists(tmp_path):
             os.remove(tmp_path)
 
@@ -136,6 +150,45 @@ def voice_respond(
     )
 
     transcript = transcribe_audio(audio_file)
+    if not transcript:
+        raise HTTPException(status_code=400, detail="Unable to transcribe audio")
+
+    activated, command = extract_command_from_wake_word(transcript)
+    if not activated:
+        return VoiceResponse(
+            activated=False,
+            transcript=transcript,
+            command=None,
+            response=f"Wake word '{WAKE_WORD}' not detected. Say '{WAKE_WORD}' first.",
+        )
+
+    response_text = generate_response(command, resolved_key)
+    return VoiceResponse(
+        activated=True,
+        transcript=transcript,
+        command=command,
+        response=response_text,
+    )
+
+
+@app.post("/v1/voice/respond/raw", response_model=VoiceResponse)
+async def voice_respond_raw(
+    request: Request,
+    x_gemini_api_key: str | None = Header(default=None),
+) -> VoiceResponse:
+    resolved_key = resolve_api_key(
+        header_api_key=x_gemini_api_key,
+        body_api_key=None,
+    )
+
+    audio_bytes = await request.body()
+    if not audio_bytes:
+        raise HTTPException(status_code=400, detail="Empty request body")
+
+    content_type = (request.headers.get("content-type") or "").lower()
+    suffix = ".webm" if "webm" in content_type else ".wav"
+
+    transcript = transcribe_audio_bytes(audio_bytes, suffix=suffix)
     if not transcript:
         raise HTTPException(status_code=400, detail="Unable to transcribe audio")
 
